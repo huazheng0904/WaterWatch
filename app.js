@@ -288,6 +288,45 @@
       }).join('') + '</tbody>';
   }
 
+  /* river profile: long-term station means from upstream to downstream, with the dock in place */
+  function renderProfile(rows) {
+    var st = state.data.station, el = $('profile');
+    if (!rows.length) { el.innerHTML = '<p class="note">No E. coli results for these stations.</p>'; return; }
+    var dock = { name: 'NBC-01 dock (this project, 2026)', lat: st.lat, lon: st.lon, dock: true, n: state.data.events.length,
+      gm: geomean(state.data.events.map(function (e) { return e.ecoli; })), years: '2026' };
+    var all = rows.concat([dock]).sort(function (a, b) { return b.lat - a.lat; });
+    var max = Math.max.apply(null, all.map(function (r) { return r.gm; }));
+    var W = 960, rowH = 34, L = 300, R = 70, H = all.length * rowH + 30;
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="min-width:640px;width:100%" role="img" aria-label="E. coli geometric mean by station, upstream to downstream">';
+    s += '<text x="' + L + '" y="12">E. coli geometric mean, CFU/100 mL</text>';
+    all.forEach(function (r, i) {
+      var y = 22 + i * rowH, w = Math.max(2, r.gm / max * (W - L - R)), d = distMi(r.lat, r.lon);
+      var where = r.dock ? '' : d.toFixed(1) + ' mi ' + (r.lat > st.lat ? 'upstream' : 'downstream') + (r.trib ? ', tributary' : '');
+      s += '<text x="' + (L - 10) + '" y="' + (y + 12) + '" text-anchor="end" style="fill:#0b0b0b;font-weight:' + (r.dock ? 650 : 400) + '">' + esc(r.name) + '</text>';
+      if (where) s += '<text x="' + (L - 10) + '" y="' + (y + 26) + '" text-anchor="end" style="font-size:11px">' + where + '</text>';
+      s += '<rect class="pb" data-i="' + i + '" x="' + L + '" y="' + (y + 2) + '" width="' + w + '" height="20" rx="4" fill="' + (r.dock ? '#0b0b0b' : (r.trib ? '#86b6ef' : '#2a78d6')) + '"/>';
+      s += '<text x="' + (L + w + 8) + '" y="' + (y + 17) + '" style="fill:#0b0b0b">' + fmt(r.gm) + '</text>';
+    });
+    s += '</svg>';
+    el.innerHTML = s;
+    Array.prototype.forEach.call(el.querySelectorAll('.pb'), function (b) {
+      var r = all[+b.getAttribute('data-i')];
+      bindTip(b, '<b>' + esc(r.name) + '</b><br>' + fmt(r.gm) + ' CFU/100 mL geometric mean<br>' + r.n + ' samples, ' + r.years);
+    });
+    var main = rows.filter(function (r) { return !r.trib; }).sort(function (a, b) { return b.gm - a.gm; });
+    var cso = (state.cso || []).filter(function (f) { return /passaic/i.test((f.properties || {}).RECV_WATER || '') && f.geometry; })
+      .map(function (f) { return { d: distMi(f.geometry.coordinates[1], f.geometry.coordinates[0]), up: f.geometry.coordinates[1] > st.lat, town: f.properties.MUNICIPALITY }; })
+      .sort(function (a, b) { return a.d - b.d; });
+    var note = '';
+    if (main.length) {
+      var pk = main[0];
+      note += 'Among the long-term river stations, the highest is ' + esc(pk.name) + ' (' + fmt(pk.gm) + '), ' + distMi(pk.lat, pk.lon).toFixed(1) + ' mi ' + (pk.lat > st.lat ? 'upstream' : 'downstream') + ' of the dock. ';
+    }
+    if (cso.length) note += 'The nearest mapped combined sewer overflow on the Passaic in this area is ' + cso[0].d.toFixed(1) + ' mi ' + (cso[0].up ? 'upstream' : 'downstream') + ' (' + esc(cso[0].town) + '). ';
+    note += 'Station bars are certified-lab results across all weather; the dock bar is one season with a screening method, so compare the shape, not the exact heights.';
+    $('profileNote').innerHTML = note;
+  }
+
   function parseCsv(text) {
     var rows = [], row = [], cur = '', q = false;
     for (var i = 0; i < text.length; i++) {
@@ -330,7 +369,7 @@
           (/^https?:\/\//.test(p.DMR_URL || '') ? '<br><a href="' + esc(p.DMR_URL) + '" target="_blank" rel="noopener">Discharge monitoring reports</a>' : '');
         L.circleMarker([c[1], c[0]], { radius: 6, color: '#fff', weight: 2, fillColor: '#eb6834', fillOpacity: 1 }).bindPopup(html).addTo(layers.cso);
       });
-      setChip('cso', j.features.length + ' in the Lower Passaic area'); renderNearest();
+      setChip('cso', j.features.length + ' in the Lower Passaic area'); renderNearest(); if (state.profile) renderProfile(state.profile);
     }).catch(function () { setChip('cso', 'could not load from NJDEP', true); state.csoFail = true; if (state.ms4Fail) renderNearest(); });
 
     arcgis(CFG.ms4Url, CFG.localBox, 'OUTFALL_ID,LOCAL_ID,MUNICIPALITY,ROADNAME,OWNERTYPE,OUTFALLTYPE,ORGANIZATION').then(function (j) {
@@ -359,7 +398,7 @@
         var o = ((by[id] = by[id] || {})[ch] = by[id][ch] || { v: [], y0: 9999, y1: 0, unit: r['ResultMeasure/MeasureUnitCode'] });
         o.v.push(v); var y = +String(r.ActivityStartDate).slice(0, 4); if (y) { o.y0 = Math.min(o.y0, y); o.y1 = Math.max(o.y1, y); }
       });
-      var n = 0;
+      var n = 0, profile = [];
       stations.forEach(function (s) {
         var lat = parseFloat(s.LatitudeMeasure), lon = parseFloat(s.LongitudeMeasure); if (!isFinite(lat) || !isFinite(lon)) return;
         var d = by[s.MonitoringLocationIdentifier] || {}, ec = d['Escherichia coli'];
@@ -368,13 +407,16 @@
         });
         var style = ec ? { radius: 9, color: '#fff', weight: 2, fillColor: colorFor(geomean(ec.v)).bg, fillOpacity: 1 }
           : { radius: 7, color: '#7b7a74', weight: 2, fillColor: '#fff', fillOpacity: 1 };
+        if (ec && /passaic river|saddle river/i.test(s.MonitoringLocationName)) profile.push({ name: s.MonitoringLocationName, lat: lat, lon: lon,
+          gm: geomean(ec.v), n: ec.v.length, years: ec.y0 + ' to ' + ec.y1, trib: !/passaic river/i.test(s.MonitoringLocationName) });
         L.circleMarker([lat, lon], style).bindPopup('<b>' + esc(s.MonitoringLocationName) + '</b><br>' + esc(s.MonitoringLocationIdentifier) + '<br>' +
           (lines.length ? lines.join('<br>') : 'No bacteria results since 2010 in the portal.')).addTo(layers.hdg);
         n++;
       });
       if (!n) throw new Error('none');
-      setChip('hdg', n + ' stations, results since 2010');
-    }).catch(function () { setChip('hdg', 'could not load from the Water Quality Portal', true); });
+      setChip('hdg', n + ' stations, results since 2010'); state.profile = profile; renderProfile(profile);
+    }).catch(function () { setChip('hdg', 'could not load from the Water Quality Portal', true);
+      $('profile').innerHTML = '<p class="note">Station data did not load from the Water Quality Portal. Try again later.</p>'; });
   }
 
   /* boot */
