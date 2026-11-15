@@ -1,0 +1,22 @@
+{
+  "source": "Passaic River Water Watch (2026). Rutherford Reach Water Quality Dataset, station NBC-01. Haolin Li. CC BY 4.0.",
+  "source_url": "https://passaicwaterwatch.netlify.app/data/",
+  "snapshot_date": "2026-11-15",
+  "note": "Snapshot of the published dataset (E. coli rows only). tide_phase is derived here from the recorded tide_stage text: rising = flood, falling = ebb.",
+  "station": {"id": "NBC-01", "name": "Nereid Boat Club dock, Rutherford, NJ", "lat": 40.83, "lon": -74.12},
+  "method": "Coliscan Easygel, duplicate plates, 24 h at 35 C",
+  "events": [
+    {"id":"W01","date":"2026-08-23","time":"17:45","ecoli":1230,"rain48_in":0.54,"rain_source":"Teterboro Airport ASOS","tide_stage":"high","tide_phase":"slack"},
+    {"id":"W02","date":"2026-08-31","time":"08:45","ecoli":1620,"rain48_in":0.03,"rain_source":"Teterboro Airport ASOS","tide_stage":"flood, near high","tide_phase":"flood","flag":"Lab split read above 2420 MPN/100 mL; field value is a lower bound"},
+    {"id":"W03","date":"2026-09-06","time":"17:45","ecoli":270,"rain48_in":0.00,"rain_source":"project rain gauge","tide_stage":"ebb, near high","tide_phase":"ebb"},
+    {"id":"W04","date":"2026-09-13","time":"17:45","ecoli":2950,"rain48_in":1.20,"rain_source":"project rain gauge","tide_stage":"low, ebbing; water level elevated by flooding","tide_phase":"ebb"},
+    {"id":"W05","date":"2026-09-20","time":"17:45","ecoli":530,"rain48_in":0.28,"rain_source":"project rain gauge","tide_stage":"ebb, near high","tide_phase":"ebb"},
+    {"id":"W06","date":"2026-10-02","time":"07:05","ecoli":610,"rain48_in":0.00,"rain_source":"project rain gauge","tide_stage":"ebb, low","tide_phase":"ebb"},
+    {"id":"W07","date":"2026-10-11","time":"17:45","ecoli":940,"rain48_in":0.58,"rain_source":"project rain gauge","tide_stage":"low, rising","tide_phase":"flood"},
+    {"id":"W08","date":"2026-10-18","time":"17:00","ecoli":850,"rain48_in":0.34,"rain_source":"project rain gauge","tide_stage":"high, ebbing","tide_phase":"ebb"},
+    {"id":"W09","date":"2026-10-26","time":"07:15","ecoli":550,"rain48_in":0.00,"rain_source":"sampler's report of no rain (gauge not read)","tide_stage":"near high, flooding","tide_phase":"flood","flag":"Rainfall not measured"},
+    {"id":"W10","date":"2026-11-01","time":"17:45","ecoli":1450,"rain48_in":0.00,"rain_source":"sampler's report of no rain (gauge not read)","tide_stage":"lowish, ebbing","tide_phase":"ebb","flag":"Rainfall not measured"},
+    {"id":"W11","date":"2026-11-09","time":"07:20","ecoli":250,"rain48_in":0.54,"rain_source":"project rain gauge","tide_stage":"high, flooding","tide_phase":"flood","flag":"Duplicate plates differed by 56%, outside the 50% precision limit"}
+  ],
+  "rain_gauge_daily_in": {"2026-09-02":0.405,"2026-09-03":0.235,"2026-09-04":0.065,"2026-09-05":0,"2026-09-06":0,"2026-09-07":0,"2026-09-08":0,"2026-09-09":0,"2026-09-10":0.1,"2026-09-11":0,"2026-09-12":0,"2026-09-13":1.2,"2026-09-14":0.54,"2026-09-15":0,"2026-09-16":0,"2026-09-17":0,"2026-09-18":0,"2026-09-19":0,"2026-09-20":0.1,"2026-09-21":0.18,"2026-09-22":0,"2026-09-23":0,"2026-09-24":0,"2026-09-25":0,"2026-09-26":0,"2026-09-27":1.25,"2026-09-28":1.11,"2026-09-29":0.15,"2026-09-30":0,"2026-10-01":0,"2026-10-02":0,"2026-10-03":0.05,"2026-10-04":0,"2026-10-05":0.05,"2026-10-06":0,"2026-10-07":0,"2026-10-08":0,"2026-10-09":0,"2026-10-10":0,"2026-10-11":0.58,"2026-10-12":2.5,"2026-10-13":0,"2026-10-14":0,"2026-10-15":0,"2026-10-16":0.05,"2026-10-17":0.34,"2026-10-18":0,"2026-11-07":0.46,"2026-11-08":0.08}
+}

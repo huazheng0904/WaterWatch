@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E. coli source map | Passaic River Water Watch</title>
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<style>
+  :root {
+    color-scheme: light;
+    --surface: #fcfcfb; --panel: #ffffff; --line: #e3e2dc;
+    --ink: #0b0b0b; --ink2: #52514e; --ink3: #7b7a74;
+    --blue: #2a78d6; --orange: #eb6834; --aqua: #1baf7a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--surface); color: var(--ink);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 28px; line-height: 1.2; margin: 0 0 8px; }
+  h2 { font-size: 20px; margin: 40px 0 4px; }
+  p { margin: 8px 0; }
+  .sub { color: var(--ink2); max-width: 70ch; }
+  .note { color: var(--ink2); font-size: 14px; max-width: 80ch; }
+  a { color: #1c5cab; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 20px 0 0; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .tile b { display: block; font-size: 26px; line-height: 1.2; }
+  .tile span { color: var(--ink2); font-size: 13px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-top: 12px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 12px 0 0; font-size: 14px; }
+  .controls label { display: inline-flex; gap: 6px; align-items: center; }
+  .controls label[aria-disabled="true"] { color: var(--ink3); }
+
+  /* heatmap */
+  .hm { display: grid; grid-template-columns: 150px repeat(4, 1fr); gap: 2px; margin-top: 12px; }
+  .hm .ch, .hm .rh { font-size: 13px; color: var(--ink2); padding: 6px 8px; }
+  .hm .ch { text-align: center; }
+  .hm .rh { display: flex; flex-direction: column; justify-content: center; }
+  .hm .rh b, .hm .ch b { color: var(--ink); font-weight: 600; }
+  .cell { min-height: 84px; border-radius: 4px; padding: 8px; display: flex; flex-direction: column;
+    justify-content: center; align-items: center; text-align: center; cursor: default; position: relative; }
+  .cell.empty { background: repeating-linear-gradient(45deg, #f4f3ef, #f4f3ef 6px, #fcfcfb 6px, #fcfcfb 12px); color: var(--ink3); font-size: 13px; }
+  .cell .v { font-size: 22px; font-weight: 650; line-height: 1.1; }
+  .cell .n { font-size: 12px; opacity: .9; }
+  .cell:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .scale { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink2); margin-top: 12px; }
+  .scale .bar { height: 10px; width: 220px; border-radius: 5px;
+    background: linear-gradient(90deg, #cde2fb, #86b6ef, #3987e5, #1c5cab, #0d366b); }
+
+  /* map */
+  #map { height: 520px; border-radius: 6px; margin-top: 12px; background: #eef1f3; }
+  .status { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; font-size: 13px; }
+  .chip { border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; background: var(--panel); color: var(--ink2); }
+  .chip i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: baseline; }
+  .chip.err { border-color: #e0b4a4; color: #8a3b1c; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--ink2); margin-top: 10px; }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+
+  /* tables */
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; margin-top: 12px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--ink2); font-weight: 600; font-size: 13px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.wrap { white-space: normal; min-width: 220px; }
+  .warn { color: #8a3b1c; }
+
+  /* timeline */
+  svg text { font: 12px system-ui, sans-serif; fill: var(--ink2); }
+  #tip { position: fixed; pointer-events: none; background: #0b0b0b; color: #fff; font-size: 13px; line-height: 1.4;
+    padding: 8px 10px; border-radius: 6px; max-width: 280px; display: none; z-index: 2000; }
+  ul.read { margin: 8px 0 0; padding-left: 20px; max-width: 80ch; }
+  ul.read li { margin: 4px 0; }
+  @media (max-width: 640px) {
+    .hm { grid-template-columns: 84px repeat(4, 1fr); }
+    .cell .v { font-size: 16px; } .cell { min-height: 68px; padding: 4px; }
+    #map { height: 400px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Where is the E. coli coming from?</h1>
+  <p class="sub">Station NBC-01, Nereid Boat Club dock, Lower Passaic River. This page lines up the 2026 sampling
+  season against rainfall, tide and the mapped sewer and stormwater outfalls, to narrow down likely sources.</p>
+
+  <div class="tiles" id="tiles"></div>
+
+  <h2>1. Rain and tide heatmap</h2>
+  <p class="sub">Each cell is the geometric mean E. coli for samples taken under that combination of 48-hour rainfall
+  and tide direction. Darker means more bacteria.</p>
+  <div class="panel">
+    <div class="controls" role="group" aria-label="Rainfall source">
+      <span>Rainfall from:</span>
+      <label><input type="radio" name="rainsrc" value="recorded" checked> Project record</label>
+      <label id="lblModel" aria-disabled="true"><input type="radio" name="rainsrc" value="model" disabled> Open-Meteo reanalysis <span id="modelState">(loading)</span></label>
+    </div>
+    <div class="hm" id="hm" role="table" aria-label="E. coli by rainfall band and tide direction"></div>
+    <div class="scale"><span>126</span><span class="bar" aria-hidden="true"></span><span>3,000 CFU/100 mL (log scale)</span></div>
+    <ul class="read">
+      <li><b>High on a falling tide after rain:</b> points upstream (combined sewers above the dock, tributaries, storm drains).</li>
+      <li><b>High on a rising tide:</b> points downstream, with the tide carrying overflow water back up the river.</li>
+      <li><b>High with no rain:</b> points to a steady source such as a leaking sewer or an illicit connection.</li>
+    </ul>
+    <p class="note" id="hmNote"></p>
+    <div class="scroll"><table id="evTable"></table></div>
+  </div>
+
+  <h2>2. Rain and E. coli through the season</h2>
+  <p class="sub">Daily rainfall on top, each sample below. Hover a point for details.</p>
+  <div class="panel">
+    <div id="timeline" class="scroll"></div>
+    <p class="note" id="tlNote"></p>
+  </div>
+
+  <h2>3. Outfalls and monitoring stations near the dock</h2>
+  <p class="sub">Mapped discharge points that could reach NBC-01, loaded live from state and federal databases.</p>
+  <div class="panel">
+    <div class="status" id="status"></div>
+    <div id="map" aria-label="Map of outfalls and monitoring stations"></div>
+    <div class="legend">
+      <span><i style="background:#0b0b0b"></i>NBC-01 dock</span>
+      <span><i style="background:var(--orange)"></i>Combined sewer overflow outfall</span>
+      <span><i style="background:var(--aqua)"></i>Stormwater (MS4) outfall</span>
+      <span><i style="background:var(--blue)"></i>Harbor Dischargers Group station, shaded by E. coli geometric mean</span>
+      <span><i style="background:#fff;border:2px solid #7b7a74"></i>Station with other bacteria indicators only</span>
+    </div>
+    <h3 style="font-size:16px;margin:20px 0 0">Closest mapped outfalls to the dock</h3>
+    <p class="note">Straight-line distance. Upstream is north of the dock (toward Dundee Dam); the river is tidal here, so downstream outfalls can also reach it.</p>
+    <div class="scroll"><table id="nearTable"><tbody><tr><td>Waiting for outfall data.</td></tr></tbody></table></div>
+  </div>
+
+  <h2>What this can and cannot show</h2>
+  <ul class="read">
+    <li>One station and eleven visits can rank explanations. They cannot prove a source.</li>
+    <li>Most heatmap cells hold one or two samples. Treat each cell as a hint.</li>
+    <li>The dock position is published to two decimal places, so distances are approximate (about half a mile).</li>
+    <li>Harbor Dischargers Group results in the federal portal are historical and use a certified lab method, so they are context, not a same-day comparison.</li>
+    <li>The next step that would localize a source is same-day sampling at several points above and below the suspected outfalls after rain.</li>
+  </ul>
+
+  <h2>Data sources</h2>
+  <ul class="read">
+    <li><a href="https://passaicwaterwatch.netlify.app/data/">Passaic River Water Watch dataset, NBC-01</a> (Haolin Li, CC BY 4.0)</li>
+    <li><a href="https://mapsdep.nj.gov/arcgis/rest/services/Features/Utilities/MapServer/0">NJDEP combined sewer overflow outfalls</a></li>
+    <li><a href="https://mapsdep.nj.gov/arcgis/rest/services/Applications/MS4_Map/MapServer/5">NJDEP MS4 stormwater outfall inventory</a></li>
+    <li><a href="https://www.waterqualitydata.us/">Water Quality Portal</a>, New Jersey Harbor Dischargers Group stations</li>
+    <li><a href="https://open-meteo.com/">Open-Meteo historical weather</a> (gridded reanalysis, not a rain gauge)</li>
+    <li>Base map © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors</li>
+  </ul>
+</main>
+<div id="tip" role="tooltip"></div>
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
